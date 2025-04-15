@@ -1,0 +1,9 @@
+{
+    "proxies": [
+        "http://proxy1.example.com:8080",
+        "http://proxy2.example.com:8080",
+        "http://user:pass@proxy3.example.com:8080",
+        "socks5://proxy4.example.com:1080",
+        "socks5://user:pass@proxy5.example.com:1080"
+    ]
+}
