@@ -483,15 +483,15 @@ async def generate_response_with_search(
 
     # Format citations for reference
     citations_info = ""
-    for i, citation in enumerate(search_results['citations']):
-        citations_info += f"[{i+1}] {citation['title']} - {citation['url']}\n"
+    for citation in search_results['citations']:
+        citations_info += f"{citation['title']} - {citation['url']}\n"
 
     search_context = f"""
     I've searched the web using DuckDuckGo and found the following information that might help answer the user's question:
 
     {search_results['text']}
 
-    Here are the sources I used (numbered references):
+    Here are the sources I used:
     {citations_info}
 
     Please use this information to provide an accurate and helpful response while maintaining your Puro personality. Remember to:
@@ -503,8 +503,9 @@ async def generate_response_with_search(
     6. Focus on speaking in a natural, human-like way
     7. {"ONLY provide links or sources if the user specifically asks for them or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "If the user asks for links or sources, provide the relevant URLs from the citations above"}
     8. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information from sources, mention where it came from by including the URL"}
-    9. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
-    10. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
+    9. DO NOT use numbered references like [1], [2], [4], [32], etc. in your response - instead, include the actual URLs if needed
+    10. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
+    11. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
     """
     additional_context += search_context
 
@@ -531,6 +532,11 @@ async def generate_response_with_search(
         response = await asyncio.to_thread(
             lambda: model.generate_content(final_prompt).text
         )
+
+        # Post-process the response to remove any numbered references
+        import re
+        # Remove patterns like [4], [32], [49], etc.
+        response = re.sub(r'\[\d+\]', '', response)
 
         # Debug: Log the response length
         logger.info(f"Received response from Gemini: {len(response)} chars")

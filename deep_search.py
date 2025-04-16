@@ -315,8 +315,8 @@ async def deep_search_with_progress(
     for i, result in enumerate(all_results):
         # Add the result body
         text += f"\n\n{result['body']}\n"
-        # Add the source URL and title with the reference number
-        text += f"Source [{i+1}]: {result['title']} - {result['href']}"
+        # Add the source URL and title without numbered references
+        text += f"Source: {result['title']} - {result['href']}"
 
     # Final progress update in the appropriate language
     total_time = time.time() - start_time
@@ -394,8 +394,8 @@ async def generate_response_with_deep_search(
 
     # Format citations for reference
     citations_info = ""
-    for i, citation in enumerate(search_results['citations']):
-        citations_info += f"[{i+1}] {citation['title']} - {citation['url']}\n"
+    for citation in search_results['citations']:
+        citations_info += f"{citation['title']} - {citation['url']}\n"
 
     # Add time awareness context if available
     time_awareness_info = ""
@@ -434,10 +434,11 @@ async def generate_response_with_deep_search(
     12. If you need to translate information from English to {language}, do so accurately while maintaining the original meaning
     13. Include relevant terminology in {language} when appropriate
     14. {"ONLY include source URLs directly in your response if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information, include the source URLs directly in your response"}
-    15. DO NOT use numbered references like [1], [2] in your response - {"if you need to mention sources, include the actual URLs" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "instead, include the actual URLs"}
+    15. DO NOT use numbered references like [1], [2], [4], [32], etc. in your response - {"if you need to mention sources, include the actual URLs" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "instead, include the actual URLs"}
     16. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "For each major piece of information, mention where it came from by including the URL"}
-    17. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
-    18. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
+    17. IMPORTANT: Remove any numbered references like [4], [32], [49], etc. that might appear in the search results
+    18. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
+    19. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
     """
 
     # Create the final prompt
@@ -461,7 +462,12 @@ async def generate_response_with_deep_search(
             lambda: model.generate_content(final_prompt).text
         )
 
-        return response
+        # Post-process the response to remove any numbered references
+        import re
+        # Remove patterns like [4], [32], [49], etc.
+        processed_response = re.sub(r'\[\d+\]', '', response)
+
+        return processed_response
     except Exception as e:
         logger.error(f"Error generating response with deep search: {e}")
         # Provide a more detailed error message in the user's language

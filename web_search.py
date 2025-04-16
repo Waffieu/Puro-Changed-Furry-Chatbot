@@ -206,16 +206,21 @@ def search_with_duckduckgo(query: str) -> Dict[str, Any]:
         }
         citations.append(citation)
 
-        # Add a reference number and source to the text
-        text += f"Source [{i+1}]: {result['title']} - {result['href']}"
+        # Add source to the text without numbered references
+        text += f"Source: {result['title']} - {result['href']}"
 
     # Debug: Log formatted results summary
     logger.info(f"Formatted {len(citations)} DuckDuckGo results with {len(text)} characters of text")
 
+    # Post-process to remove any numbered references
+    import re
+    # Remove patterns like [4], [32], [49], etc.
+    processed_text = re.sub(r'\[\d+\]', '', text)
+
     # If we got results, return them
     if result_list:
         return {
-            "text": text.strip(),
+            "text": processed_text.strip(),
             "citations": citations
         }
     else:
@@ -293,14 +298,19 @@ def search_with_gemini(query: str) -> Dict[str, Any]:
             }
             citations.append(citation)
 
-            # Replace the citation in the text with a numbered reference and URL
-            text = text.replace(f"[Source: {match}]", f"Source [{i+1}]: {citation['title']} - {citation['url']}")
+            # Replace the citation in the text with the URL (without numbered references)
+            text = text.replace(f"[Source: {match}]", f"Source: {citation['title']} - {citation['url']}")
 
         # Debug: Log the final formatted result
         logger.info(f"Formatted Gemini search results with {len(text)} characters and {len(citations)} citations")
 
+        # Post-process to remove any numbered references
+        import re
+        # Remove patterns like [4], [32], [49], etc.
+        processed_text = re.sub(r'\[\d+\]', '', text)
+
         return {
-            "text": text,
+            "text": processed_text,
             "citations": citations
         }
     except Exception as e:
