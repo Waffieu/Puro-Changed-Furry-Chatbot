@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import random
 
 import google.generativeai as genai
@@ -369,7 +369,8 @@ async def generate_response_with_deep_search(
     query: str,  # The search query
     chat_history: List[Dict[str, str]],
     search_results: Dict[str, Any],
-    language: str
+    language: str,
+    time_context: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Generate a detailed response using Gemini with deep search results
@@ -379,6 +380,7 @@ async def generate_response_with_deep_search(
         chat_history: Recent chat history
         search_results: Deep search results
         language: Detected language
+        time_context: Optional time awareness context
 
     Returns:
         Generated detailed response in the user's language
@@ -416,6 +418,15 @@ async def generate_response_with_deep_search(
     for i, citation in enumerate(search_results['citations']):
         citations_info += f"[{i+1}] {citation['title']} - {citation['url']}\n"
 
+    # Add time awareness context if available
+    time_awareness_info = ""
+    if time_context and config.TIME_AWARENESS_ENABLED:
+        time_awareness_info = f"""
+        CURRENT TIME INFORMATION:
+        - Current time in Turkey: {time_context['formatted_time']}
+        - Time since user's last message: {time_context['formatted_time_since']}
+        """
+
     # Add search context with special instructions for deep search
     search_context = f"""
     I've performed an extensive deep search of the web about "{query}" using {search_results['stats']['queries_used']} different search queries and found information from {search_results['stats']['unique_urls']} unique websites. Many of these search queries were specifically in {language} to ensure we get results in the user's preferred language. Here's what I found that might help answer the user's question:
@@ -424,6 +435,8 @@ async def generate_response_with_deep_search(
 
     Here are all the sources I used (numbered references):
     {citations_info}
+
+    {time_awareness_info if time_awareness_info else ''}
 
     IMPORTANT INSTRUCTIONS FOR DEEP SEARCH RESPONSE:
     1. Create a COMPREHENSIVE and DETAILED response in {language} about "{query}"
@@ -442,6 +455,8 @@ async def generate_response_with_deep_search(
     14. When providing information, include the source URLs directly in your response
     15. DO NOT use numbered references like [1], [2] in your response - instead, include the actual URLs
     16. For each major piece of information, mention where it came from by including the URL
+    17. Be aware of the current time in Turkey and reference it naturally if relevant
+    18. If appropriate, acknowledge how long it's been since the user's last message
     """
 
     # Create the final prompt

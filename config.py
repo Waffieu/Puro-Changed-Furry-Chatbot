@@ -48,6 +48,10 @@ elif proxy_file and os.path.exists(proxy_file):
 # Maximum number of retries for DuckDuckGo searches
 MAX_SEARCH_RETRIES = int(os.getenv("MAX_SEARCH_RETRIES", "5"))
 
+# Time awareness settings
+DEFAULT_TIMEZONE = os.getenv("DEFAULT_TIMEZONE", "Europe/Istanbul")
+TIME_AWARENESS_ENABLED = os.getenv("TIME_AWARENESS_ENABLED", "true").lower() == "true"
+
 # Gemini model settings
 GEMINI_MODEL = "gemini-2.0-flash-lite"
 GEMINI_TEMPERATURE = 0.7

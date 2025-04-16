@@ -15,6 +15,11 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
   - Long-term memory (100 messages) for each user
   - Memories persist between bot restarts
   - Each user has their own personalized memory file
+- **Time Awareness**:
+  - Understands the current time in Turkey
+  - Recognizes time of day (morning, afternoon, evening, night)
+  - Tracks how long it's been since the user's last message
+  - Naturally references time information in conversations
 - **Language Adaptation**:
   - Automatically detects and responds in the user's language
   - Translates action indicators (like "*tilts head curiously*") to match the detected language

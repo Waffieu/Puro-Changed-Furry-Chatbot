@@ -19,6 +19,7 @@ from personality import create_system_prompt, format_messages_for_gemini
 from language_detection import detect_language_with_gemini
 from media_analysis import analyze_image, analyze_video, download_media_from_message
 from deep_search import deep_search_with_progress, generate_response_with_deep_search
+from time_awareness import get_time_awareness_context
 # Action translation no longer needed as we've removed physical action descriptions
 
 # Configure logging with more detailed format and DEBUG level for better debugging
@@ -30,7 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Log startup information
-logger.info("Starting Gottlich Bot with DuckDuckGo web search integration")
+logger.info("Starting Puro Bot with DuckDuckGo web search integration")
 logger.info(f"Using Gemini model: {config.GEMINI_MODEL}")
 logger.info(f"Short memory size: {config.SHORT_MEMORY_SIZE}, Long memory size: {config.LONG_MEMORY_SIZE}")
 logger.info(f"Max search results: {config.MAX_SEARCH_RESULTS}")
@@ -232,6 +233,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             chat_history = memory.get_short_memory(chat_id)
             logger.debug(f"Retrieved {len(chat_history)} messages from short memory for chat {chat_id}")
 
+            # Get time awareness context if enabled
+            time_context = None
+            if config.TIME_AWARENESS_ENABLED:
+                time_context = get_time_awareness_context(chat_id)
+                logger.debug(f"Time context for chat {chat_id}: {time_context['formatted_time']} (last message: {time_context['formatted_time_since']})")
+
             # Generate search queries
             logger.info(f"Starting web search process for message: '{user_message[:50]}...' (truncated)")
 
@@ -270,7 +277,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 chat_history,
                 combined_results,
                 detected_language,
-                media_analysis if media_type in ("photo", "video") else None
+                media_analysis if media_type in ("photo", "video") else None,
+                time_context if config.TIME_AWARENESS_ENABLED else None
             )
 
             # Stop typing indicator
@@ -411,7 +419,8 @@ async def generate_response_with_search(
     chat_history: List[Dict[str, str]],
     search_results: Dict[str, Any],
     language: str,
-    media_analysis: Optional[Dict[str, Any]] = None
+    media_analysis: Optional[Dict[str, Any]] = None,
+    time_context: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Generate a response using Gemini with search results
@@ -422,6 +431,7 @@ async def generate_response_with_search(
         search_results: Combined search results
         language: Detected language
         media_analysis: Optional media analysis results
+        time_context: Optional time awareness context
 
     Returns:
         Generated response
@@ -443,6 +453,18 @@ async def generate_response_with_search(
 
     # Add additional context
     additional_context = ""
+
+    # Add time awareness context if available
+    if time_context and config.TIME_AWARENESS_ENABLED:
+        logger.debug("Adding time awareness context to prompt")
+        time_awareness_context = f"""
+        CURRENT TIME INFORMATION:
+        - Current time in Turkey: {time_context['formatted_time']}
+        - Time since user's last message: {time_context['formatted_time_since']}
+
+        Please be aware of this time context in your response. You can reference the current time of day or how long it's been since the user's last message if relevant.
+        """
+        additional_context += time_awareness_context + "\n\n"
 
     # Add media analysis context if available
     if media_analysis:
@@ -481,6 +503,8 @@ async def generate_response_with_search(
     6. Focus on speaking in a natural, human-like way
     7. If the user asks for links or sources, provide the relevant URLs from the citations above
     8. When providing information from sources, mention where it came from by including the URL
+    9. Be aware of the current time in Turkey and reference it naturally if relevant
+    10. If appropriate, acknowledge how long it's been since the user's last message
     """
     additional_context += search_context
 
@@ -561,6 +585,12 @@ async def handle_deepsearch_command(update: Update, context: ContextTypes.DEFAUL
         # Get chat history
         chat_history = memory.get_short_memory(chat_id)
 
+        # Get time awareness context if enabled
+        time_context = None
+        if config.TIME_AWARENESS_ENABLED:
+            time_context = get_time_awareness_context(chat_id)
+            logger.debug(f"Time context for deep search: {time_context['formatted_time']} (last message: {time_context['formatted_time_since']})")
+
         # Send initial message in the appropriate language
         initial_message_text = ""
         if detected_language.lower() == "turkish":
@@ -604,7 +634,8 @@ async def handle_deepsearch_command(update: Update, context: ContextTypes.DEFAUL
                 search_query,
                 chat_history,
                 search_results,
-                detected_language
+                detected_language,
+                time_context if config.TIME_AWARENESS_ENABLED else None
             )
 
             # Stop typing indicator
