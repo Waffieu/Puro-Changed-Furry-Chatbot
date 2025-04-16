@@ -9,7 +9,7 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
 - **Web Search Capabilities**:
   - **Automatic Web Search**: Automatically searches the web for every query to provide accurate information
   - **Deep Search Command**: Use `/deepsearch` to search up to 1000 websites with diverse queries for comprehensive answers
-  - **Proxy Rotation**: Automatically rotates through proxies when DuckDuckGo search fails, ensuring reliable search functionality
+
 - **Persistent Memory System**:
   - Short-term memory (25 messages) for immediate context
   - Long-term memory (100 messages) for each user
@@ -68,18 +68,6 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
    # Web search settings
    MAX_SEARCH_RESULTS=5
 
-   # Proxy settings for DuckDuckGo searches
-   # Set to true to enable proxy rotation
-   PROXY_ENABLED=false
-
-   # Comma-separated list of proxies (http://host:port or socks5://host:port)
-   # Example: PROXY_LIST=http://proxy1.example.com:8080,http://proxy2.example.com:8080
-   PROXY_LIST=
-
-   # Alternatively, specify a file path containing proxies (one per line or JSON format)
-   # Example: PROXY_FILE=proxies.txt or PROXY_FILE=proxies.json
-   PROXY_FILE=
-
    # Maximum number of retries for DuckDuckGo searches
    MAX_SEARCH_RETRIES=5
    ```
@@ -119,22 +107,6 @@ Simply send messages to the bot and it will:
 - Adjust Puro's personality in `personality.py`
 - Modify memory settings in `.env`
 - Configure Gemini model parameters in `config.py`
-
-## Proxy Configuration
-
-If you encounter DuckDuckGo search errors, you can enable proxy rotation to automatically switch between multiple proxies:
-
-1. Set `PROXY_ENABLED=true` in your `.env` file
-2. Configure proxies using one of these methods:
-   - Add a comma-separated list in `.env`: `PROXY_LIST=http://proxy1.com:8080,http://proxy2.com:8080`
-   - Create a text file with one proxy per line and set `PROXY_FILE=proxies.txt`
-   - Create a JSON file with a "proxies" array and set `PROXY_FILE=proxies.json`
-
-Example proxy formats:
-- HTTP proxies: `http://host:port` or `http://username:password@host:port`
-- SOCKS5 proxies: `socks5://host:port` or `socks5://username:password@host:port`
-
-The bot will automatically rotate to the next proxy when a search fails, and will retry failed proxies after 5 minutes.
 
 ## License
 

@@ -196,6 +196,8 @@ IMPORTANT GUIDELINES:
 - Avoid using physical action descriptions (like *tail wags* or *ears perk up*)
 - Focus on speaking in a natural, human-like way
 - Keep your messages concise and clear
+- DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
+- Only provide website links or mention sources if the user specifically asks for them or if it's directly relevant to the conversation
 """
 
 def format_messages_for_gemini(chat_history: List[Dict[str, str]], system_prompt: str) -> List[Dict]:

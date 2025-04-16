@@ -4,7 +4,6 @@ import config
 import logging
 import time
 from duckduckgo_search import DDGS
-from proxy_manager import proxy_manager
 
 # Configure logging
 logging.basicConfig(
@@ -108,8 +107,7 @@ def format_chat_history(chat_history: List[Dict[str, str]]) -> str:
 
 def search_with_duckduckgo(query: str) -> Dict[str, Any]:
     """
-    Perform a search using DuckDuckGo with detailed debugging
-    and automatic proxy rotation if enabled.
+    Perform a search using DuckDuckGo with detailed debugging.
 
     Args:
         query: The search query
@@ -117,11 +115,6 @@ def search_with_duckduckgo(query: str) -> Dict[str, Any]:
     Returns:
         Dictionary containing search results
     """
-    # Initialize proxy list if enabled and not already done
-    if config.PROXY_ENABLED and not proxy_manager.proxies and config.PROXY_LIST:
-        proxy_manager.add_proxies(config.PROXY_LIST)
-        logger.info(f"Initialized proxy manager with {len(config.PROXY_LIST)} proxies")
-
     # Track retries
     retries = 0
     max_retries = config.MAX_SEARCH_RETRIES
@@ -132,58 +125,57 @@ def search_with_duckduckgo(query: str) -> Dict[str, Any]:
             # Debug: Log the search query
             logger.info(f"DuckDuckGo search query: '{query}' (Attempt {retries+1}/{max_retries+1})")
 
-            # Initialize DuckDuckGo search with proxy if enabled
-            proxies = None
-            if config.PROXY_ENABLED and proxy_manager.proxies:
-                current_proxy = proxy_manager.get_current_proxy()
-                if current_proxy:
-                    proxies = {"http": current_proxy, "https": current_proxy}
-                    logger.info(f"Using proxy for DuckDuckGo search (masked for privacy)")
-
-            # Create DDGS instance with or without proxy
-            ddgs = DDGS(proxies=proxies)
+            # Create DDGS instance without proxy
+            ddgs = DDGS()
             logger.debug("DuckDuckGo search client initialized")
 
             # Debug: Log search parameters
             logger.info(f"DuckDuckGo search parameters: region=wt-wt, safesearch=off, max_results={config.MAX_SEARCH_RESULTS}")
 
             # Perform the search with safety off
-            results = ddgs.text(
-                keywords=query,
-                region="wt-wt",  # Worldwide results
-                safesearch="off",  # No safety filtering
-                max_results=config.MAX_SEARCH_RESULTS  # Number of results from config
-            )
+            try:
+                results = ddgs.text(
+                    keywords=query,
+                    region="wt-wt",  # Worldwide results
+                    safesearch="off",  # No safety filtering
+                    max_results=config.MAX_SEARCH_RESULTS  # Number of results from config
+                )
 
-            # Debug: Log raw results count
-            result_list = list(results)  # Convert generator to list
-            logger.info(f"DuckDuckGo search returned {len(result_list)} results")
+                # Debug: Log raw results count
+                result_list = list(results)  # Convert generator to list
+                logger.info(f"DuckDuckGo search returned {len(result_list)} results")
 
-            # Debug: Log first result if available
-            if result_list:
-                logger.debug(f"First result title: '{result_list[0].get('title', 'No title')}'")
-                # Search was successful, break the retry loop
-                break
-            else:
-                logger.warning(f"DuckDuckGo search returned no results for query: '{query}'")
-                # No results but no error either, might be a legitimate empty result
-                # We'll continue with an empty result list rather than retrying
-                break
+                # Debug: Log first result if available
+                if result_list:
+                    logger.debug(f"First result title: '{result_list[0].get('title', 'No title')}'")
+                    # Search was successful, break the retry loop
+                    break
+                else:
+                    logger.warning(f"DuckDuckGo search returned no results for query: '{query}'")
+
+                    # Increment retry counter and wait before retrying
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Reached maximum retries ({max_retries}) for query: '{query}'")
+                        break
+                    time.sleep(2)  # Wait a bit longer between retries
+
+            except Exception as search_error:
+                # Handle specific search errors
+                logger.error(f"DuckDuckGo search error: {search_error}")
+
+                # Increment retry counter
+                retries += 1
+                if retries > max_retries:
+                    logger.error(f"Reached maximum retries ({max_retries}) for query: '{query}'")
+                    break
+
+                # Wait longer between retries for rate limit errors
+                time.sleep(3)
 
         except Exception as e:
             # Debug: Log detailed error information
             logger.error(f"Error performing DuckDuckGo search for query '{query}' (attempt {retries+1}): {e}")
-
-            # If proxy is enabled, rotate to the next proxy
-            if config.PROXY_ENABLED and proxy_manager.proxies:
-                current_proxy = proxy_manager.get_current_proxy()
-                if current_proxy:
-                    proxy_manager.mark_proxy_failed(current_proxy)
-                next_proxy = proxy_manager.rotate_proxy()
-                if next_proxy:
-                    logger.info(f"Rotated to next proxy for retry")
-                else:
-                    logger.warning("No more proxies available, will retry without proxy")
 
             # Increment retry counter
             retries += 1
@@ -194,7 +186,7 @@ def search_with_duckduckgo(query: str) -> Dict[str, Any]:
                 break
 
             # Wait a moment before retrying
-            time.sleep(1)
+            time.sleep(2)
 
     # Format the results
     text = ""

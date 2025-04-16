@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-import json
 
 # Load environment variables
 load_dotenv()
@@ -17,40 +16,24 @@ MEMORY_DIR = os.getenv("MEMORY_DIR", "user_memories")
 # Web search settings
 MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "100"))
 
-# Proxy settings
-PROXY_ENABLED = os.getenv("PROXY_ENABLED", "false").lower() == "true"
-
-# Get proxies from environment variable or file
+# Proxy settings - DISABLED
+# Proxy system has been removed due to connection issues with DuckDuckGo
+PROXY_ENABLED = False
 PROXY_LIST = []
-proxy_list_env = os.getenv("PROXY_LIST", "")
-proxy_file = os.getenv("PROXY_FILE", "")
-
-if proxy_list_env:
-    # Parse comma-separated list of proxies
-    PROXY_LIST = [p.strip() for p in proxy_list_env.split(",") if p.strip()]
-elif proxy_file and os.path.exists(proxy_file):
-    # Load proxies from file
-    try:
-        with open(proxy_file, "r") as f:
-            if proxy_file.endswith(".json"):
-                # JSON file with proxies
-                proxy_data = json.load(f)
-                if isinstance(proxy_data, list):
-                    PROXY_LIST = proxy_data
-                elif isinstance(proxy_data, dict) and "proxies" in proxy_data:
-                    PROXY_LIST = proxy_data["proxies"]
-            else:
-                # Text file with one proxy per line
-                PROXY_LIST = [line.strip() for line in f if line.strip()]
-    except Exception as e:
-        print(f"Error loading proxies from file: {e}")
+PROXY_FILE = ""
 
 # Maximum number of retries for DuckDuckGo searches
-MAX_SEARCH_RETRIES = int(os.getenv("MAX_SEARCH_RETRIES", "5"))
+MAX_SEARCH_RETRIES = int(os.getenv("MAX_SEARCH_RETRIES", "10"))
 
 # Time awareness settings
 DEFAULT_TIMEZONE = os.getenv("DEFAULT_TIMEZONE", "Europe/Istanbul")
 TIME_AWARENESS_ENABLED = os.getenv("TIME_AWARENESS_ENABLED", "true").lower() == "true"
+# Only show time information when relevant to the conversation
+SHOW_TIME_ONLY_WHEN_RELEVANT = os.getenv("SHOW_TIME_ONLY_WHEN_RELEVANT", "true").lower() == "true"
+
+# Website link settings
+# Only show website links when explicitly requested or relevant
+SHOW_LINKS_ONLY_WHEN_RELEVANT = os.getenv("SHOW_LINKS_ONLY_WHEN_RELEVANT", "true").lower() == "true"
 
 # Gemini model settings
 GEMINI_MODEL = "gemini-2.0-flash-lite"

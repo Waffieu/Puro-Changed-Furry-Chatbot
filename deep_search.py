@@ -9,7 +9,6 @@ from duckduckgo_search import DDGS
 
 import config
 from web_search import format_chat_history
-from proxy_manager import proxy_manager
 
 # Configure logging
 logging.basicConfig(
@@ -151,10 +150,7 @@ async def deep_search_with_progress(
     search_queries = await generate_diverse_search_queries(query, chat_history, language=language, num_queries=min(50, max_sites // 20))
     logger.info(f"Starting deep search with {len(search_queries)} diverse queries, targeting {max_sites} total sites")
 
-    # Initialize proxy list if enabled and not already done
-    if config.PROXY_ENABLED and not proxy_manager.proxies and config.PROXY_LIST:
-        proxy_manager.add_proxies(config.PROXY_LIST)
-        logger.info(f"Initialized proxy manager with {len(config.PROXY_LIST)} proxies for deep search")
+    # Proxy system has been removed
 
     # Calculate how many results to get per query to reach max_sites
     results_per_query = max(5, min(100, max_sites // len(search_queries)))
@@ -205,19 +201,11 @@ async def deep_search_with_progress(
         max_query_retries = config.MAX_SEARCH_RETRIES
         result_list = []
 
-        # Try the search with retries and proxy rotation if needed
+        # Try the search with retries
         while query_retries <= max_query_retries:
             try:
-                # Initialize DuckDuckGo search with proxy if enabled
-                proxies = None
-                if config.PROXY_ENABLED and proxy_manager.proxies:
-                    current_proxy = proxy_manager.get_current_proxy()
-                    if current_proxy:
-                        proxies = {"http": current_proxy, "https": current_proxy}
-                        logger.info(f"Using proxy for deep search query {i+1}/{len(search_queries)} (masked for privacy)")
-
-                # Create DDGS instance with or without proxy
-                ddgs = DDGS(proxies=proxies)
+                # Create DDGS instance without proxy
+                ddgs = DDGS()
 
                 # Perform the search with language-specific region
                 results = ddgs.text(
@@ -242,16 +230,7 @@ async def deep_search_with_progress(
                 # Debug: Log detailed error information
                 logger.error(f"Error in deep search query {i+1} (attempt {query_retries+1}): {e}")
 
-                # If proxy is enabled, rotate to the next proxy
-                if config.PROXY_ENABLED and proxy_manager.proxies:
-                    current_proxy = proxy_manager.get_current_proxy()
-                    if current_proxy:
-                        proxy_manager.mark_proxy_failed(current_proxy)
-                    next_proxy = proxy_manager.rotate_proxy()
-                    if next_proxy:
-                        logger.info(f"Rotated to next proxy for deep search retry")
-                    else:
-                        logger.warning("No more proxies available for deep search, will retry without proxy")
+                # Proxy system has been removed
 
                 # Increment retry counter
                 query_retries += 1
@@ -425,6 +404,8 @@ async def generate_response_with_deep_search(
         CURRENT TIME INFORMATION:
         - Current time in Turkey: {time_context['formatted_time']}
         - Time since user's last message: {time_context['formatted_time_since']}
+
+        IMPORTANT: You have access to this time information, but DO NOT mention the time or time-related information in your response UNLESS the user EXPLICITLY asks about the time or specifically requests time-related information. Never volunteer time information on your own.
         """
 
     # Add search context with special instructions for deep search
@@ -452,11 +433,11 @@ async def generate_response_with_deep_search(
     11. PRIORITIZE information from sources that are in {language} - these are more likely to be relevant to the user's cultural and linguistic context
     12. If you need to translate information from English to {language}, do so accurately while maintaining the original meaning
     13. Include relevant terminology in {language} when appropriate
-    14. When providing information, include the source URLs directly in your response
-    15. DO NOT use numbered references like [1], [2] in your response - instead, include the actual URLs
-    16. For each major piece of information, mention where it came from by including the URL
-    17. Be aware of the current time in Turkey and reference it naturally if relevant
-    18. If appropriate, acknowledge how long it's been since the user's last message
+    14. {"ONLY include source URLs directly in your response if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information, include the source URLs directly in your response"}
+    15. DO NOT use numbered references like [1], [2] in your response - {"if you need to mention sources, include the actual URLs" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "instead, include the actual URLs"}
+    16. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "For each major piece of information, mention where it came from by including the URL"}
+    17. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
+    18. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
     """
 
     # Create the final prompt

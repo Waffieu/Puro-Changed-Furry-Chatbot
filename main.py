@@ -462,7 +462,7 @@ async def generate_response_with_search(
         - Current time in Turkey: {time_context['formatted_time']}
         - Time since user's last message: {time_context['formatted_time_since']}
 
-        Please be aware of this time context in your response. You can reference the current time of day or how long it's been since the user's last message if relevant.
+        IMPORTANT: You have access to this time information, but DO NOT mention the time or time-related information in your response UNLESS the user EXPLICITLY asks about the time or specifically requests time-related information. Never volunteer time information on your own.
         """
         additional_context += time_awareness_context + "\n\n"
 
@@ -501,10 +501,10 @@ async def generate_response_with_search(
     4. Speak naturally like a real person would - be conversational and friendly
     5. Avoid using physical action descriptions (like *tail wags* or *ears perk up*)
     6. Focus on speaking in a natural, human-like way
-    7. If the user asks for links or sources, provide the relevant URLs from the citations above
-    8. When providing information from sources, mention where it came from by including the URL
-    9. Be aware of the current time in Turkey and reference it naturally if relevant
-    10. If appropriate, acknowledge how long it's been since the user's last message
+    7. {"ONLY provide links or sources if the user specifically asks for them or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "If the user asks for links or sources, provide the relevant URLs from the citations above"}
+    8. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information from sources, mention where it came from by including the URL"}
+    9. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
+    10. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
     """
     additional_context += search_context
 
