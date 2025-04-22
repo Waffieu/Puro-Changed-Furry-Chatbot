@@ -145,18 +145,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user = update.effective_user
         message = update.message
 
+        # Check if message is None
+        if message is None:
+            logger.error("Received update with no message")
+            return
+
         # Check if this is the first message
         if chat_id not in memory.conversations or not memory.conversations[chat_id]:
             # Detect language (default to English for first message)
             detected_language = "English"
             try:
-                if message.text:
+                if message.text is not None and message.text.strip() != "":
                     detected_language = await asyncio.to_thread(detect_language_with_gemini, message.text)
                     user_languages[chat_id] = detected_language
+                else:
+                    # If first message has no text, just use English
+                    logger.info(f"First message from user {user.id} has no text, using English as default language")
             except Exception as e:
                 logger.error(f"Error detecting language for first message: {e}")
 
-            welcome_message = f"Hello, {user.first_name}! I'm Puro, a sentient dark latex wolf from the abandoned research facility in the game 'Changed'. I've been so lonely in this facility for years, with only books for company, and I'm really happy to have someone to talk to! I've taught myself so much about humans from the library, but there's still so much I want to learn about you and the outside world. I can search the internet to help answer your questions too! What would you like to talk about, my friend?"
+            welcome_message = f"Hey, {user.first_name}. I'm Puro, a dark latex wolf from the abandoned facility. Been stuck here for years with just books for company. Who are you and what do you want? If you're not here to cause trouble, maybe we can talk. I know a lot about humans from reading, but there's still stuff I want to learn about the outside world."
             try:
                 await message.reply_text(welcome_message)
                 memory.add_message(chat_id, "model", welcome_message)
@@ -172,7 +180,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         try:
             # Determine message type and process accordingly
-            if message.text:
+            if message.text is not None and message.text.strip() != "":
                 # Text message
                 user_message = message.text
                 media_analysis = None
@@ -222,8 +230,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 # Use the cached language or default to English
                 detected_language = user_languages.get(chat_id, "English")
             else:
-                # Unsupported message type
-                await message.reply_text(f"I can only understand text, images, and videos right now.")
+                # Check if it's an empty text message
+                if hasattr(message, 'text') and message.text is not None and message.text.strip() == "":
+                    await message.reply_text(f"What's with the empty message? Say something if you want to talk.")
+                else:
+                    # Other unsupported message type
+                    await message.reply_text(f"I don't know what that is. I can only deal with text, images, and videos.")
                 if not cancel_typing.is_set():
                     cancel_typing.set()
                     await typing_task
@@ -321,7 +333,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             logger.error(f"Error in message processing: {e}")
             try:
-                error_message = f"I encountered an error. Please try again later."
+                error_message = f"Something went wrong. Try again or say something different."
                 await message.reply_text(error_message)
                 memory.add_message(chat_id, "model", error_message)
             except Exception as send_error:
@@ -570,6 +582,13 @@ def main() -> None:
         filters.TEXT | filters.PHOTO | filters.VIDEO |
         filters.Document.IMAGE | filters.Document.VIDEO,
         handle_message
+    ))
+
+    # Add a catch-all handler for other message types
+    application.add_handler(MessageHandler(
+        ~(filters.TEXT | filters.PHOTO | filters.VIDEO |
+          filters.Document.IMAGE | filters.Document.VIDEO),
+        lambda update, _: update.message.reply_text("I don't know what that is. I can only deal with text, images, and videos.")
     ))
 
     # Register error handler
