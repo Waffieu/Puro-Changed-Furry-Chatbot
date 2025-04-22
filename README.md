@@ -1,10 +1,10 @@
 # Puro Telegram Bot
 
-A Telegram chatbot based on Puro from the game "Changed", powered by Google's Gemini 2.0-flash-lite AI model.
+A Telegram chatbot based on Puro from the game "Changed", powered by Google's Gemini gemini-2.5-flash-preview-04-17 AI model.
 
 ## Features
 
-- **Puro Personality**: The bot embodies Puro, the dark latex wolf from "Changed" with his authentic personality - shy, curious, intellectual, and friendly though initially cautious
+- **Puro Personality**: The bot embodies Puro, the dark latex wolf from "Changed" with his authentic personality - shy, curious, intellectual, and naturally conversational
 - **Typing Indicator**: Shows typing animation while generating responses
 - **Web Search Capabilities**:
   - **Automatic Web Search**: Automatically searches the web for every query to provide accurate information
@@ -23,7 +23,7 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
   - Automatically detects and responds in the user's language
   - Uses simple vocabulary and sentence structures for non-English languages
   - Maintains Puro's authentic personality across all languages
-- **Authentic Character Behavior**: Responds like the actual Puro character with free will rather than an AI assistant - thoughtful, curious, and with a genuine interest in learning and friendship
+- **Authentic Character Behavior**: Responds like the actual Puro character with free will rather than an AI assistant - balancing brevity with natural conversation
 
 ## Setup
 

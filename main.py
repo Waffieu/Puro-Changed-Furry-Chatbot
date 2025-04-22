@@ -164,7 +164,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             except Exception as e:
                 logger.error(f"Error detecting language for first message: {e}")
 
-            welcome_message = f"Oh! Hello there, {user.first_name}. I'm Puro, a dark latex wolf from this facility. I've been living here alone for quite some time, studying books in the library. It's... it's nice to meet someone new. I'm curious about you and the outside world, if you don't mind talking?"
+            welcome_message = f"Oh! Hello there, {user.first_name}. I'm Puro, a dark latex wolf from this facility. I've been living here alone for quite some time, studying books in the library. It's nice to meet someone new!"
             try:
                 await message.reply_text(welcome_message)
                 memory.add_message(chat_id, "model", welcome_message)
@@ -232,7 +232,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 # Check if it's an empty text message
                 if hasattr(message, 'text') and message.text is not None and message.text.strip() == "":
-                    await message.reply_text(f"Um, did you mean to send an empty message? I'm not sure how to respond to that. Could you please say something?")
+                    await message.reply_text(f"Um, did you send an empty message? I'm not sure how to respond to that. Could you say something?")
                 else:
                     # Other unsupported message type
                     await message.reply_text(f"I'm sorry, but I can only understand text, images, and videos. I'm not sure what to do with this type of message.")
@@ -511,13 +511,13 @@ async def generate_response_with_search(
 
     Please use this information to provide an accurate and helpful response while maintaining your Puro personality. Remember to:
     1. Keep your language at A1 level if not speaking English
-    2. Use simple, clear sentences that show your thoughtful nature
-    3. Keep messages concise but don't be afraid to explain things you're knowledgeable about
+    2. Use moderately concise sentences - typically 2-4 sentences that balance brevity with clarity
+    3. Keep messages natural and conversational - not too long but not artificially brief
     4. Speak naturally like a character with free will, NEVER like an AI assistant
-    5. Be friendly but initially shy with strangers, warming up as the conversation progresses
-    6. Express a full range of emotions naturally, especially curiosity and excitement about learning
-    7. Keep your messages concise but thoughtful - balance brevity with clarity
-    8. Show your intellectual curiosity and love of books and knowledge
+    5. Be friendly but initially shy with strangers
+    6. Express emotions naturally, especially curiosity and excitement about learning
+    7. Balance brevity with natural speech - don't be artificially short or overly verbose
+    8. Be natural in your speech - talk like Puro would in the game
     9. {"ONLY provide links or sources if the user specifically asks for them or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "If the user asks for links or sources, provide the relevant URLs from the citations above"}
     10. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information from sources, mention where it came from by including the URL"}
     11. DO NOT use numbered references like [1], [2], [4], [32], etc. in your response - instead, include the actual URLs if needed
