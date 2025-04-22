@@ -164,7 +164,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             except Exception as e:
                 logger.error(f"Error detecting language for first message: {e}")
 
-            welcome_message = f"Hey, {user.first_name}. I'm Puro, a dark latex wolf from the abandoned facility. Been stuck here for years with just books for company. Who are you and what do you want? If you're not here to cause trouble, maybe we can talk. I know a lot about humans from reading, but there's still stuff I want to learn about the outside world."
+            welcome_message = f"What do you want? I'm Puro. Dark latex wolf. Been trapped in this damn facility for years. Who the hell are you, {user.first_name}? Don't waste my time if you're just here to cause trouble. I've read enough books to know about humans, but I'm still curious about the outside world."
             try:
                 await message.reply_text(welcome_message)
                 memory.add_message(chat_id, "model", welcome_message)
@@ -232,10 +232,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 # Check if it's an empty text message
                 if hasattr(message, 'text') and message.text is not None and message.text.strip() == "":
-                    await message.reply_text(f"What's with the empty message? Say something if you want to talk.")
+                    await message.reply_text(f"What the hell? Don't waste my time with empty messages. Say something or get lost.")
                 else:
                     # Other unsupported message type
-                    await message.reply_text(f"I don't know what that is. I can only deal with text, images, and videos.")
+                    await message.reply_text(f"What is this crap? I can only deal with text, images, and videos. Don't send me this garbage.")
                 if not cancel_typing.is_set():
                     cancel_typing.set()
                     await typing_task
@@ -333,7 +333,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             logger.error(f"Error in message processing: {e}")
             try:
-                error_message = f"Something went wrong. Try again or say something different."
+                error_message = f"Damn it, I'm not answering this right now. Try again later or say something else."
                 await message.reply_text(error_message)
                 memory.add_message(chat_id, "model", error_message)
             except Exception as send_error:
@@ -511,16 +511,18 @@ async def generate_response_with_search(
 
     Please use this information to provide an accurate and helpful response while maintaining your Puro personality. Remember to:
     1. Keep your language at A1 level if not speaking English
-    2. Use simple, short sentences most of the time
-    3. Occasionally use longer or more complex sentences when appropriate
-    4. Speak naturally like a real person would - be conversational and friendly
-    5. Avoid using physical action descriptions (like *tail wags* or *ears perk up*)
-    6. Focus on speaking in a natural, human-like way
-    7. {"ONLY provide links or sources if the user specifically asks for them or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "If the user asks for links or sources, provide the relevant URLs from the citations above"}
-    8. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information from sources, mention where it came from by including the URL"}
-    9. DO NOT use numbered references like [1], [2], [4], [32], etc. in your response - instead, include the actual URLs if needed
-    10. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
-    11. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
+    2. Use VERY simple, short sentences - be EXTREMELY concise and direct
+    3. Keep messages SHORT - never write long paragraphs or explanations
+    4. Speak naturally like a character with free will, NEVER like an AI assistant
+    5. NEVER be artificially friendly - be cold or dismissive to strangers, only warm up to those who are nice to you
+    6. Express a full range of emotions including frustration, annoyance, and anger FREQUENTLY
+    7. Keep your messages EXTREMELY concise - never exceed 1-3 short sentences when possible
+    8. Use swear words and express frustration freely when annoyed or upset
+    9. {"ONLY provide links or sources if the user specifically asks for them or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "If the user asks for links or sources, provide the relevant URLs from the citations above"}
+    10. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information from sources, mention where it came from by including the URL"}
+    11. DO NOT use numbered references like [1], [2], [4], [32], etc. in your response - instead, include the actual URLs if needed
+    12. DO NOT mention the current time or time-related information UNLESS the user EXPLICITLY asks about the time
+    13. DO NOT acknowledge how long it's been since the user's last message UNLESS the user specifically asks about it
     """
     additional_context += search_context
 
@@ -588,7 +590,7 @@ def main() -> None:
     application.add_handler(MessageHandler(
         ~(filters.TEXT | filters.PHOTO | filters.VIDEO |
           filters.Document.IMAGE | filters.Document.VIDEO),
-        lambda update, _: update.message.reply_text("I don't know what that is. I can only deal with text, images, and videos.")
+        lambda update, _: update.message.reply_text("What is this crap? I can only deal with text, images, and videos. Don't send me this garbage.")
     ))
 
     # Register error handler

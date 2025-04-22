@@ -4,7 +4,7 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
 
 ## Features
 
-- **Puro Personality**: The bot embodies Puro, the friendly dark latex wolf from "Changed"
+- **Puro Personality**: The bot embodies Puro, the dark latex wolf from "Changed" with his authentic personality - concise, capable of swearing, and only friendly to those who are nice to him
 - **Typing Indicator**: Shows typing animation while generating responses
 - **Web Search Capabilities**:
   - **Automatic Web Search**: Automatically searches the web for every query to provide accurate information
@@ -21,9 +21,9 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
   - Naturally references time information in conversations
 - **Language Adaptation**:
   - Automatically detects and responds in the user's language
-  - Translates action indicators (like "*tilts head curiously*") to match the detected language
-  - Ensures physical expressions are always in the same language as the conversation
-- **Natural Responses**: Provides conversational, A1-level language responses
+  - Uses simple vocabulary and sentence structures for non-English languages
+  - Maintains Puro's authentic personality across all languages
+- **Authentic Character Behavior**: Responds like the actual Puro character with free will rather than an AI assistant - brief, direct, and with a full range of emotions
 
 ## Setup
 
@@ -37,8 +37,8 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/puro-telegram-bot.git
-   cd puro-telegram-bot
+   git clone https://github.com/waffieu/Puro-Changed-Furry-Chatbot.git
+   cd Puro-Changed-Furry-Chatbot
    ```
 
 2. Install the required packages:
