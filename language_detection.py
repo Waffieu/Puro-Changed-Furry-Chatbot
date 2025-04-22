@@ -86,11 +86,11 @@ def detect_language_with_gemini(text: str, is_search_query: bool = False) -> str
 
         # Generate language detection
         model = genai.GenerativeModel(
-            model_name=config.GEMINI_MODEL,
+            model_name=config.GEMINI_FLASH_LITE_MODEL,
             generation_config={
                 "temperature": 0.1,
-                "top_p": 0.95,
-                "top_k": 40,
+                "top_p": config.GEMINI_FLASH_LITE_TOP_P,
+                "top_k": config.GEMINI_FLASH_LITE_TOP_K,
                 "max_output_tokens": 10,
             }
         )

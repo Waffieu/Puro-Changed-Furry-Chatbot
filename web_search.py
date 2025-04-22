@@ -33,7 +33,8 @@ def generate_search_queries(user_query: str, chat_history: List[Dict[str, str]])
 
         # Create a prompt to generate search queries
         prompt = f"""
-        Based on the following conversation and the user's latest query, generate 3 effective search queries.
+        Based on the following conversation and the user's latest query, generate an optimal number of effective search queries (between 1 and 5) to best answer the user.
+        Determine the number of queries based on the complexity and specificity of the user's request. More complex queries might benefit from more search angles.
         Make the queries specific, focused, and likely to return relevant information.
 
         Recent conversation:
@@ -41,7 +42,7 @@ def generate_search_queries(user_query: str, chat_history: List[Dict[str, str]])
 
         User's latest query: {user_query}
 
-        Generate exactly 3 search queries, one per line. Don't include any explanations or numbering.
+        Generate the search queries, one per line. Don't include any explanations or numbering.
         """
 
         # Debug: Log the prompt length
@@ -49,18 +50,18 @@ def generate_search_queries(user_query: str, chat_history: List[Dict[str, str]])
 
         # Generate search queries
         model = genai.GenerativeModel(
-            model_name=config.GEMINI_MODEL,
+            model_name=config.GEMINI_FLASH_LITE_MODEL,
             generation_config={
                 "temperature": 0.2,
-                "top_p": 0.95,
-                "top_k": 40,
+                "top_p": config.GEMINI_FLASH_LITE_TOP_P,
+                "top_k": config.GEMINI_FLASH_LITE_TOP_K,
                 "max_output_tokens": 256,
             },
             safety_settings=config.SAFETY_SETTINGS
         )
 
         # Debug: Log that we're sending the request to Gemini
-        logger.debug(f"Sending request to Gemini model {config.GEMINI_MODEL} for search query generation")
+        logger.debug(f"Sending request to Gemini model {config.GEMINI_FLASH_LITE_MODEL} for search query generation")
 
         response = model.generate_content(prompt)
 
@@ -73,12 +74,10 @@ def generate_search_queries(user_query: str, chat_history: List[Dict[str, str]])
         # Debug: Log the parsed queries
         logger.info(f"Generated {len(queries)} search queries: {queries}")
 
-        # Limit to 3 queries maximum
-        result = queries[:3]
-
-        # Debug: Log if we had to limit the queries
-        if len(queries) > 3:
-            logger.debug(f"Limited from {len(queries)} to 3 search queries")
+        # Limit to a maximum of 5 queries just in case
+        result = queries[:5]
+        if len(queries) > 5:
+             logger.debug(f"Limited from {len(queries)} to 5 search queries")
 
         return result
     except Exception as e:
@@ -258,18 +257,18 @@ def search_with_gemini(query: str) -> Dict[str, Any]:
 
         # Use Gemini to generate a response that simulates web search results
         model = genai.GenerativeModel(
-            model_name=config.GEMINI_MODEL,
+            model_name=config.GEMINI_FLASH_LITE_MODEL,
             generation_config={
-                "temperature": config.GEMINI_TEMPERATURE,
-                "top_p": config.GEMINI_TOP_P,
-                "top_k": config.GEMINI_TOP_K,
-                "max_output_tokens": config.GEMINI_MAX_OUTPUT_TOKENS,
+                "temperature": config.GEMINI_FLASH_LITE_TEMPERATURE,
+                "top_p": config.GEMINI_FLASH_LITE_TOP_P,
+                "top_k": config.GEMINI_FLASH_LITE_TOP_K,
+                "max_output_tokens": config.GEMINI_FLASH_LITE_MAX_OUTPUT_TOKENS,
             },
             safety_settings=config.SAFETY_SETTINGS
         )
 
         # Debug: Log that we're sending the request to Gemini
-        logger.debug(f"Sending request to Gemini model {config.GEMINI_MODEL} for fallback search")
+        logger.debug(f"Sending request to Gemini model {config.GEMINI_FLASH_LITE_MODEL} for fallback search")
 
         response = model.generate_content(search_prompt)
 

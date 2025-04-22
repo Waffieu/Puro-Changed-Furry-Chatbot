@@ -1,12 +1,11 @@
 import logging
 import asyncio
 import os
-import math
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 
 import google.generativeai as genai
 from telegram import Update, Bot
-from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram.constants import ChatAction
 
 # Telegram message length limit (4096 characters)
@@ -18,7 +17,7 @@ from web_search import generate_search_queries, search_with_duckduckgo
 from personality import create_system_prompt, format_messages_for_gemini
 from language_detection import detect_language_with_gemini
 from media_analysis import analyze_image, analyze_video, download_media_from_message
-from deep_search import deep_search_with_progress, generate_response_with_deep_search
+# Deep search functionality is still available but not exposed as a command
 from time_awareness import get_time_awareness_context
 # Action translation no longer needed as we've removed physical action descriptions
 
@@ -33,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Log startup information
 logger.info("Starting Puro Bot with DuckDuckGo web search integration")
 logger.info(f"Using Gemini model: {config.GEMINI_MODEL}")
+logger.info(f"Using Gemini Flash Lite model for web search, language detection, and media analysis: {config.GEMINI_FLASH_LITE_MODEL}")
 logger.info(f"Short memory size: {config.SHORT_MEMORY_SIZE}, Long memory size: {config.LONG_MEMORY_SIZE}")
 logger.info(f"Max search results: {config.MAX_SEARCH_RESULTS}")
 
@@ -256,18 +256,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 )
                 logger.info(f"Generated {len(search_queries)} search queries: {search_queries}")
 
-            # Perform searches and collect results
-            logger.info(f"Starting DuckDuckGo searches with {len(search_queries)} queries")
-            search_results = []
-
+            # Perform searches concurrently and collect results
+            logger.info(f"Starting {len(search_queries)} DuckDuckGo searches concurrently")
+            search_tasks = []
             for i, query in enumerate(search_queries):
-                logger.debug(f"Executing DuckDuckGo search {i+1}/{len(search_queries)}: '{query}'")
-                result = await asyncio.to_thread(search_with_duckduckgo, query)
-                search_results.append(result)
-                logger.debug(f"Search {i+1} returned {len(result['citations'])} results with {len(result['text'])} chars of text")
+                logger.debug(f"Creating search task {i+1}/{len(search_queries)} for query: '{query}'")
+                # We still use asyncio.to_thread because the underlying duckduckgo_search library might be blocking
+                search_tasks.append(asyncio.to_thread(search_with_duckduckgo, query))
+
+            # Run searches concurrently
+            search_results_list = await asyncio.gather(*search_tasks)
 
             # Combine search results
-            logger.info(f"Combining results from {len(search_results)} searches")
+            logger.info(f"Combining results from {len(search_results_list)} concurrent searches")
+            # Flatten the list of results (since gather returns a list of results)
+            search_results = search_results_list # Assuming search_with_duckduckgo returns the dict directly
             combined_results = combine_search_results(search_results)
             logger.info(f"Combined search results: {len(combined_results['text'])} chars of text with {len(combined_results['citations'])} citations")
 
@@ -549,164 +552,7 @@ async def generate_response_with_search(
         # Default to English if language is not available
         return f"I'm having trouble processing your request. Let me try to answer based on what I know."
 
-async def handle_deepsearch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /deepsearch command for extensive web searching."""
-    try:
-        chat_id = update.effective_chat.id
-        message = update.message
 
-        # Check if there's a query after the command
-        if not context.args or not ' '.join(context.args).strip():
-            await message.reply_text("Please provide a search query after the /deepsearch command. For example: /deepsearch quantum computing")
-            return
-
-        # Get the search query from command arguments
-        search_query = ' '.join(context.args)
-        logger.info(f"Received deep search command with query: '{search_query}'")
-
-        # Add user message to memory
-        memory.add_message(chat_id, "user", f"/deepsearch {search_query}")
-
-        # Detect language with more emphasis on accuracy for deep search
-        try:
-            # First try to detect from the search query, specifying that it's a search query
-            detected_language = await asyncio.to_thread(detect_language_with_gemini, search_query, True)
-
-            # If we already have a language for this user and the query is very short, use the existing language
-            if chat_id in user_languages and len(search_query.split()) < 3:
-                logger.info(f"Query too short for reliable language detection, using existing language: {user_languages[chat_id]}")
-                detected_language = user_languages[chat_id]
-
-            # Update the language cache
-            user_languages[chat_id] = detected_language
-            logger.info(f"Detected language for deep search: {detected_language}")
-        except Exception as e:
-            # Fallback to English or existing language
-            if chat_id in user_languages:
-                detected_language = user_languages[chat_id]
-            else:
-                detected_language = "English"
-            logger.error(f"Error detecting language for deep search: {e}, using {detected_language}")
-
-        # Get chat history
-        chat_history = memory.get_short_memory(chat_id)
-
-        # Get time awareness context if enabled
-        time_context = None
-        if config.TIME_AWARENESS_ENABLED:
-            time_context = get_time_awareness_context(chat_id)
-            logger.debug(f"Time context for deep search: {time_context['formatted_time']} (last message: {time_context['formatted_time_since']})")
-
-        # Send initial message in the appropriate language
-        initial_message_text = ""
-        if detected_language.lower() == "turkish":
-            initial_message_text = f"'{search_query}' için derin arama başlatılıyor...\nBu işlem 1000'e kadar web sitesini arayacak ve birkaç dakika sürebilir. İlerleme durumu hakkında sizi bilgilendireceğim."
-        else:
-            initial_message_text = f"Starting deep search for: '{search_query}'\nThis will search up to 1000 websites and may take several minutes. I'll keep you updated on the progress."
-
-        initial_message = await message.reply_text(initial_message_text)
-
-        # Set up typing indicator that continues until response is ready
-        cancel_typing = asyncio.Event()
-        typing_task = asyncio.create_task(
-            keep_typing(chat_id, context.bot, cancel_typing)
-        )
-
-        # Progress update callback
-        async def progress_callback(progress_text: str):
-            try:
-                # Format the progress message in the appropriate language
-                if detected_language.lower() == "turkish":
-                    header = f"'{search_query}' için derin arama:"
-                else:
-                    header = f"Deep search for: '{search_query}':"
-
-                await initial_message.edit_text(f"{header}\n\n{progress_text}")
-            except Exception as e:
-                logger.error(f"Error updating progress message: {e}")
-
-        try:
-            # Perform deep search with progress updates
-            search_results = await deep_search_with_progress(
-                search_query,
-                chat_history,
-                max_sites=1000,  # Search up to 1000 websites
-                progress_callback=progress_callback,
-                language=detected_language
-            )
-
-            # Generate response with deep search results
-            response = await generate_response_with_deep_search(
-                search_query,
-                chat_history,
-                search_results,
-                detected_language,
-                time_context if config.TIME_AWARENESS_ENABLED else None
-            )
-
-            # Stop typing indicator
-            cancel_typing.set()
-            await typing_task
-
-            # Update the progress message with completion notice in the appropriate language
-            if detected_language.lower() == "turkish":
-                await initial_message.edit_text(
-                    f"'{search_query}' için derin arama tamamlandı!\n\n"
-                    f"{search_results['stats']['queries_used']} farklı arama sorgusu kullanarak "
-                    f"{search_results['stats']['unique_urls']} benzersiz web sitesi arandı.\n"
-                    f"Toplam arama süresi: {int(search_results['stats']['total_time']//60)} dakika "
-                    f"{int(search_results['stats']['total_time']%60)} saniye\n\n"
-                    f"Kapsamlı cevabınız hazırlanıyor..."
-                )
-            else:
-                await initial_message.edit_text(
-                    f"Deep search completed for: '{search_query}'\n\n"
-                    f"Searched {search_results['stats']['unique_urls']} unique websites using "
-                    f"{search_results['stats']['queries_used']} different search queries.\n"
-                    f"Total search time: {int(search_results['stats']['total_time']//60)} minutes "
-                    f"{int(search_results['stats']['total_time']%60)} seconds\n\n"
-                    f"Preparing your comprehensive answer..."
-                )
-
-            # Split the response into chunks if it's too long
-            response_chunks = split_long_message(response)
-            logger.info(f"Sending deep search response in {len(response_chunks)} chunks")
-
-            # Send each chunk as a separate message
-            first_chunk = True
-            for chunk in response_chunks:
-                if first_chunk:
-                    # Send the first chunk as a reply to the original message
-                    await message.reply_text(chunk)
-                    first_chunk = False
-                else:
-                    # Send subsequent chunks as regular messages
-                    await context.bot.send_message(chat_id=chat_id, text=chunk)
-
-            # Add model response to memory (store the full response)
-            memory.add_message(chat_id, "model", response)
-
-        except Exception as e:
-            # Stop typing indicator if it's running
-            if not cancel_typing.is_set():
-                cancel_typing.set()
-                await typing_task
-
-            logger.error(f"Error in deep search processing: {e}")
-            if detected_language.lower() == "turkish":
-                await message.reply_text(f"Derin arama sırasında bir hata oluştu. Lütfen farklı bir sorgu ile tekrar deneyin.")
-            else:
-                await message.reply_text(f"I encountered an error during the deep search. Please try again with a different query.")
-
-    except Exception as outer_e:
-        logger.error(f"Critical error in handle_deepsearch_command: {outer_e}")
-        try:
-            if detected_language and detected_language.lower() == "turkish":
-                await update.message.reply_text("Derin arama ile ilgili beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.")
-            else:
-                await update.message.reply_text("I encountered an unexpected error with the deep search. Please try again later.")
-        except:
-            pass
 
 async def error_handler(_: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a message to the developer."""
@@ -717,8 +563,7 @@ def main() -> None:
     # Create the Application
     application = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
 
-    # Add command handlers
-    application.add_handler(CommandHandler("deepsearch", handle_deepsearch_command))
+    # Command handlers can be added here if needed
 
     # Add message handler for text, photo, video, and document messages
     application.add_handler(MessageHandler(

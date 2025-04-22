@@ -8,7 +8,6 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
 - **Typing Indicator**: Shows typing animation while generating responses
 - **Web Search Capabilities**:
   - **Automatic Web Search**: Automatically searches the web for every query to provide accurate information
-  - **Deep Search Command**: Use `/deepsearch` to search up to 1000 websites with diverse queries for comprehensive answers
 
 - **Persistent Memory System**:
   - Short-term memory (25 messages) for immediate context
@@ -94,13 +93,7 @@ Simply send messages to the bot and it will:
 
 ### Commands
 
-- `/deepsearch [query]` - Performs an extensive search across up to 1000 websites using multiple search queries. This provides much more comprehensive information than regular searches. For example: `/deepsearch quantum computing advancements`
-  - The bot will continuously update you on the search progress
-  - Searches can take several minutes to complete depending on the complexity of the query
-  - Results are much more detailed and comprehensive than regular searches
-  - Searches are performed in the user's language - if you search in Turkish, the bot will prioritize Turkish language results
-  - The bot generates search queries in your language to ensure relevant, localized results
-  - Responses are provided in the same language as your search query
+No commands are currently available. Simply chat with the bot normally and it will automatically search the web for information.
 
 ## Customization
 

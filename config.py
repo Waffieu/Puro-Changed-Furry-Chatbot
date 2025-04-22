@@ -36,11 +36,19 @@ SHOW_TIME_ONLY_WHEN_RELEVANT = os.getenv("SHOW_TIME_ONLY_WHEN_RELEVANT", "true")
 SHOW_LINKS_ONLY_WHEN_RELEVANT = os.getenv("SHOW_LINKS_ONLY_WHEN_RELEVANT", "true").lower() == "true"
 
 # Gemini model settings
-GEMINI_MODEL = "gemini-2.0-flash-lite"
+GEMINI_MODEL = "gemini-2.5-flash-preview-04-17"
 GEMINI_TEMPERATURE = 0.7
 GEMINI_TOP_P = 0.95
 GEMINI_TOP_K = 40
 GEMINI_MAX_OUTPUT_TOKENS = 1024
+
+# Specialized Gemini models
+# Model for web search, language detection, and media analysis
+GEMINI_FLASH_LITE_MODEL = "gemini-2.0-flash-lite"
+GEMINI_FLASH_LITE_TEMPERATURE = 0.4
+GEMINI_FLASH_LITE_TOP_P = 0.95
+GEMINI_FLASH_LITE_TOP_K = 32
+GEMINI_FLASH_LITE_MAX_OUTPUT_TOKENS = 1024
 
 # Safety settings - all set to BLOCK_NONE as requested
 SAFETY_SETTINGS = [

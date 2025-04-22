@@ -57,17 +57,17 @@ async def generate_diverse_search_queries(user_query: str, chat_history: List[Di
 
         # Generate search queries
         model = genai.GenerativeModel(
-            model_name=config.GEMINI_MODEL,
+            model_name=config.GEMINI_FLASH_LITE_MODEL,
             generation_config={
                 "temperature": 0.7,  # Higher temperature for more diversity
-                "top_p": 0.95,
-                "top_k": 40,
-                "max_output_tokens": 1024,
+                "top_p": config.GEMINI_FLASH_LITE_TOP_P,
+                "top_k": config.GEMINI_FLASH_LITE_TOP_K,
+                "max_output_tokens": config.GEMINI_FLASH_LITE_MAX_OUTPUT_TOKENS,
             },
             safety_settings=config.SAFETY_SETTINGS
         )
 
-        logger.debug(f"Sending request to Gemini model {config.GEMINI_MODEL} for diverse search query generation")
+        logger.debug(f"Sending request to Gemini model {config.GEMINI_FLASH_LITE_MODEL} for diverse search query generation")
         response = model.generate_content(prompt)
         logger.debug(f"Received raw response from Gemini: '{response.text}'")
 
@@ -121,6 +121,64 @@ async def generate_diverse_search_queries(user_query: str, chat_history: List[Di
         # Fallback to basic variations of the original query
         return [user_query] + [f"{user_query} {suffix}" for suffix in ["guide", "tutorial", "explained", "details"]]
 
+async def perform_single_search(search_query: str, region: str, results_per_query: int, max_retries: int) -> List[Dict[str, Any]]:
+    """
+    Perform a single search query with retries
+
+    Args:
+        search_query: The search query to execute
+        region: Region code for localized results
+        results_per_query: Number of results to request
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        List of search results
+    """
+    query_retries = 0
+    result_list = []
+
+    # Try the search with retries
+    while query_retries <= max_retries:
+        try:
+            # Create DDGS instance
+            ddgs = DDGS()
+
+            # Perform the search with language-specific region
+            results = ddgs.text(
+                keywords=search_query,
+                region=region,  # Region based on language
+                safesearch="off",  # No safety filtering
+                max_results=results_per_query  # Number of results per query
+            )
+
+            # Convert generator to list
+            result_list = list(results)
+            logger.info(f"Search query '{search_query}' returned {len(result_list)} results")
+
+            # If we got results, break the retry loop
+            if result_list:
+                break
+            else:
+                logger.warning(f"Search query returned no results, will retry: '{search_query}'")
+                query_retries += 1
+
+        except Exception as e:
+            # Debug: Log detailed error information
+            logger.error(f"Error in search query (attempt {query_retries+1}): {e}")
+
+            # Increment retry counter
+            query_retries += 1
+
+            # If we've reached max retries, log and break
+            if query_retries > max_retries:
+                logger.error(f"Reached maximum retries ({max_retries}) for search query: '{search_query}'")
+                break
+
+            # Wait a moment before retrying
+            await asyncio.sleep(1)
+
+    return result_list
+
 async def deep_search_with_progress(
     query: str,
     chat_history: List[Dict[str, str]],
@@ -129,13 +187,14 @@ async def deep_search_with_progress(
     language: str = "English"
 ) -> Dict[str, Any]:
     """
-    Perform a deep search with many queries and results, providing progress updates
+    Perform a deep search with many queries and results in parallel, providing progress updates
 
     Args:
         query: The user's query
         chat_history: Recent chat history for context
         max_sites: Maximum number of sites to search (default: 1000)
         progress_callback: Callback function to report progress
+        language: The user's language
 
     Returns:
         Dictionary containing search results
@@ -146,160 +205,132 @@ async def deep_search_with_progress(
     unique_urls = set()
     total_results_count = 0
 
-    # Generate diverse search queries in the user's language
-    search_queries = await generate_diverse_search_queries(query, chat_history, language=language, num_queries=min(50, max_sites // 20))
-    logger.info(f"Starting deep search with {len(search_queries)} diverse queries, targeting {max_sites} total sites")
-
-    # Proxy system has been removed
+    # Generate diverse search queries in the user's language - dynamically determine number based on query complexity
+    query_complexity = len(query.split()) + (5 if any(c in query for c in '?!,.;:') else 0)
+    num_queries = min(100, max(10, query_complexity * 2, max_sites // 10))
+    search_queries = await generate_diverse_search_queries(query, chat_history, language=language, num_queries=num_queries)
+    logger.info(f"Starting parallel deep search with {len(search_queries)} diverse queries, targeting {max_sites} total sites")
 
     # Calculate how many results to get per query to reach max_sites
     results_per_query = max(5, min(100, max_sites // len(search_queries)))
-    logger.info(f"Will fetch approximately {results_per_query} results per query")
+    logger.info(f"Will fetch approximately {results_per_query} results per query in parallel")
 
     # Report initial progress in the appropriate language
     if progress_callback:
         if language.lower() == "turkish":
-            await progress_callback(f"{len(search_queries)} farklı sorgu ile derin arama başlatılıyor. Bu biraz zaman alabilir...")
+            await progress_callback(f"{len(search_queries)} farklı sorgu ile paralel derin arama başlatılıyor. Bu biraz zaman alabilir...")
         else:
-            await progress_callback(f"Starting deep search with {len(search_queries)} diverse queries. This may take some time...")
+            await progress_callback(f"Starting parallel deep search with {len(search_queries)} diverse queries. This may take some time...")
 
     # Track last progress update time to avoid too frequent updates
     last_update_time = time.time()
-    update_interval = 5  # seconds between progress updates
+    update_interval = 3  # seconds between progress updates
 
-    # Process each search query
-    for i, search_query in enumerate(search_queries):
-        if total_results_count >= max_sites:
-            logger.info(f"Reached maximum of {max_sites} sites, stopping search")
-            break
+    # Determine region based on language for better localized results
+    region = "wt-wt"  # Default to worldwide
+    if language.lower() == "turkish":
+        region = "tr-tr"  # Turkish region
+    elif language.lower() == "spanish":
+        region = "es-es"  # Spanish region
+    elif language.lower() == "french":
+        region = "fr-fr"  # French region
+    elif language.lower() == "german":
+        region = "de-de"  # German region
+    elif language.lower() == "italian":
+        region = "it-it"  # Italian region
+    elif language.lower() == "russian":
+        region = "ru-ru"  # Russian region
+    elif language.lower() == "portuguese":
+        region = "pt-pt"  # Portuguese region
+    elif language.lower() == "japanese":
+        region = "jp-jp"  # Japanese region
+    elif language.lower() == "chinese":
+        region = "cn-cn"  # Chinese region
 
-        logger.info(f"Processing query {i+1}/{len(search_queries)}: '{search_query}'")
+    # Create a lock for thread-safe updates to shared data
+    results_lock = asyncio.Lock()
 
-        # Determine region based on language for better localized results
-        region = "wt-wt"  # Default to worldwide
-        if language.lower() == "turkish":
-            region = "tr-tr"  # Turkish region
-        elif language.lower() == "spanish":
-            region = "es-es"  # Spanish region
-        elif language.lower() == "french":
-            region = "fr-fr"  # French region
-        elif language.lower() == "german":
-            region = "de-de"  # German region
-        elif language.lower() == "italian":
-            region = "it-it"  # Italian region
-        elif language.lower() == "russian":
-            region = "ru-ru"  # Russian region
-        elif language.lower() == "portuguese":
-            region = "pt-pt"  # Portuguese region
-        elif language.lower() == "japanese":
-            region = "jp-jp"  # Japanese region
-        elif language.lower() == "chinese":
-            region = "cn-cn"  # Chinese region
+    # Create a semaphore to limit concurrent searches (to avoid rate limiting)
+    # Adjust the value based on what DuckDuckGo can handle without rate limiting
+    search_semaphore = asyncio.Semaphore(10)  # Allow 10 concurrent searches
 
-        # Track retries for this query
-        query_retries = 0
-        max_query_retries = config.MAX_SEARCH_RETRIES
-        result_list = []
+    async def process_search_results(search_query: str, query_index: int):
+        nonlocal total_results_count, last_update_time
 
-        # Try the search with retries
-        while query_retries <= max_query_retries:
-            try:
-                # Create DDGS instance without proxy
-                ddgs = DDGS()
+        async with search_semaphore:  # Limit concurrent searches
+            # Perform the search
+            result_list = await perform_single_search(
+                search_query=search_query,
+                region=region,
+                results_per_query=results_per_query,
+                max_retries=config.MAX_SEARCH_RETRIES
+            )
 
-                # Perform the search with language-specific region
-                results = ddgs.text(
-                    keywords=search_query,
-                    region=region,  # Region based on language
-                    safesearch="off",  # No safety filtering
-                    max_results=results_per_query  # Number of results per query
-                )
-
-                # Convert generator to list
-                result_list = list(results)
-                logger.info(f"Deep search query {i+1}/{len(search_queries)} returned {len(result_list)} results")
-
-                # If we got results, break the retry loop
-                if result_list:
-                    break
-                else:
-                    logger.warning(f"Deep search query {i+1} returned no results, will retry: '{search_query}'")
-                    query_retries += 1
-
-            except Exception as e:
-                # Debug: Log detailed error information
-                logger.error(f"Error in deep search query {i+1} (attempt {query_retries+1}): {e}")
-
-                # Proxy system has been removed
-
-                # Increment retry counter
-                query_retries += 1
-
-                # If we've reached max retries, log and break
-                if query_retries > max_query_retries:
-                    logger.error(f"Reached maximum retries ({max_query_retries}) for deep search query: '{search_query}'")
-                    break
-
-                # Wait a moment before retrying
-                await asyncio.sleep(1)
-
-        try:
-            # Process results if we got any
             new_results_count = 0
 
-            # Process results
-            for result in result_list:
-                # Skip if we've already seen this URL
-                if result['href'] in unique_urls:
-                    continue
+            # Process results with thread-safe updates
+            async with results_lock:
+                # Process results
+                for result in result_list:
+                    # Skip if we've already seen this URL
+                    if result['href'] in unique_urls:
+                        continue
 
-                # Add to our collections
-                unique_urls.add(result['href'])
-                all_results.append(result)
-                all_citations.append({
-                    "title": result['title'],
-                    "url": result['href']
-                })
-                new_results_count += 1
-                total_results_count += 1
+                    # Add to our collections
+                    unique_urls.add(result['href'])
+                    all_results.append(result)
+                    all_citations.append({
+                        "title": result['title'],
+                        "url": result['href']
+                    })
+                    new_results_count += 1
+                    total_results_count += 1
 
-                # Check if we've reached the maximum
-                if total_results_count >= max_sites:
-                    break
+                # Report progress if enough time has passed
+                current_time = time.time()
+                if progress_callback and (current_time - last_update_time > update_interval):
+                    elapsed_time = current_time - start_time
+                    estimated_total_time = (elapsed_time / (query_index + 1)) * len(search_queries) if query_index > 0 else 0
+                    remaining_time = max(0, estimated_total_time - elapsed_time)
 
-            # Report progress if enough time has passed
-            current_time = time.time()
-            if progress_callback and (current_time - last_update_time > update_interval):
-                elapsed_time = current_time - start_time
-                estimated_total_time = (elapsed_time / total_results_count) * max_sites if total_results_count > 0 else 0
-                remaining_time = max(0, estimated_total_time - elapsed_time)
+                    if language.lower() == "turkish":
+                        progress_message = (
+                            f"Paralel derin arama ilerlemesi: {total_results_count}/{max_sites} site arandı "
+                            f"({(total_results_count/max_sites*100):.1f}% tamamlandı)\n"
+                            f"{query_index+1}/{len(search_queries)} sorgu tamamlandı, '{search_query}' sorgusundan {new_results_count} yeni sonuç bulundu\n"
+                            f"Geçen süre: {int(elapsed_time//60)} dk {int(elapsed_time%60)} sn | "
+                            f"Tahmini kalan: {int(remaining_time//60)} dk {int(remaining_time%60)} sn"
+                        )
+                    else:
+                        progress_message = (
+                            f"Parallel deep search progress: {total_results_count}/{max_sites} sites searched "
+                            f"({(total_results_count/max_sites*100):.1f}% complete)\n"
+                            f"{query_index+1}/{len(search_queries)} queries completed, found {new_results_count} new results from query: '{search_query}'\n"
+                            f"Elapsed time: {int(elapsed_time//60)} min {int(elapsed_time%60)} sec | "
+                            f"Est. remaining: {int(remaining_time//60)} min {int(remaining_time%60)} sec"
+                        )
 
-                if language.lower() == "turkish":
-                    progress_message = (
-                        f"Derin arama ilerlemesi: {total_results_count}/{max_sites} site arandı "
-                        f"({(total_results_count/max_sites*100):.1f}%)\n"
-                        f"'{search_query}' sorgusundan {new_results_count} yeni sonuç bulundu\n"
-                        f"Geçen süre: {int(elapsed_time//60)} dk {int(elapsed_time%60)} sn | "
-                        f"Tahmini kalan: {int(remaining_time//60)} dk {int(remaining_time%60)} sn"
-                    )
-                else:
-                    progress_message = (
-                        f"Deep search progress: {total_results_count}/{max_sites} sites searched "
-                        f"({(total_results_count/max_sites*100):.1f}%)\n"
-                        f"Found {new_results_count} new results from query: '{search_query}'\n"
-                        f"Elapsed time: {int(elapsed_time//60)} min {int(elapsed_time%60)} sec | "
-                        f"Est. remaining: {int(remaining_time//60)} min {int(remaining_time%60)} sec"
-                    )
+                    await progress_callback(progress_message)
+                    last_update_time = current_time
 
-                await progress_callback(progress_message)
-                last_update_time = current_time
+    # Create tasks for all search queries to run in parallel
+    tasks = []
+    for i, search_query in enumerate(search_queries):
+        # Create a task for each search query
+        task = asyncio.create_task(process_search_results(search_query, i))
+        tasks.append(task)
 
-            # Add a small delay between queries to avoid rate limiting
-            await asyncio.sleep(0.5)
+        # Add a small delay between task creation to avoid overwhelming the API
+        await asyncio.sleep(0.1)
 
-        except Exception as e:
-            logger.error(f"Error searching for query '{search_query}': {e}")
-            # Continue with next query
+        # If we've reached the maximum sites, don't create more tasks
+        if total_results_count >= max_sites:
+            logger.info(f"Reached maximum of {max_sites} sites, stopping search task creation")
+            break
+
+    # Wait for all search tasks to complete
+    await asyncio.gather(*tasks)
+    logger.info(f"All parallel search tasks completed, found {total_results_count} total results")
 
     # Format the results
     text = ""
@@ -323,16 +354,16 @@ async def deep_search_with_progress(
     if progress_callback:
         if language.lower() == "turkish":
             await progress_callback(
-                f"Derin arama tamamlandı! {len(search_queries)} farklı sorgu kullanarak {len(unique_urls)} benzersiz web sitesi arandı.\n"
-                f"Toplam süre: {int(total_time//60)} dakika {int(total_time%60)} saniye"
+                f"Paralel derin arama tamamlandı! {len(search_queries)} farklı sorgu kullanarak {len(unique_urls)} benzersiz web sitesi arandı.\n"
+                f"Toplam süre: {int(total_time//60)} dakika {int(total_time%60)} saniye (paralel arama sayesinde hızlandırıldı)"
             )
         else:
             await progress_callback(
-                f"Deep search completed! Searched {len(unique_urls)} unique websites using {len(search_queries)} different queries.\n"
-                f"Total time: {int(total_time//60)} minutes {int(total_time%60)} seconds"
+                f"Parallel deep search completed! Searched {len(unique_urls)} unique websites using {len(search_queries)} different queries.\n"
+                f"Total time: {int(total_time//60)} minutes {int(total_time%60)} seconds (accelerated with parallel searching)"
             )
 
-    logger.info(f"Deep search completed with {len(unique_urls)} unique URLs in {total_time:.1f} seconds")
+    logger.info(f"Parallel deep search completed with {len(unique_urls)} unique URLs in {total_time:.1f} seconds")
 
     return {
         "text": text.strip(),
@@ -340,7 +371,8 @@ async def deep_search_with_progress(
         "stats": {
             "unique_urls": len(unique_urls),
             "queries_used": len(search_queries),
-            "total_time": total_time
+            "total_time": total_time,
+            "parallel_search": True
         }
     }
 
