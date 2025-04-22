@@ -23,7 +23,7 @@ A Telegram chatbot based on Puro from the game "Changed", powered by Google's Ge
   - Automatically detects and responds in the user's language
   - Uses simple vocabulary and sentence structures for non-English languages
   - Maintains Puro's authentic personality across all languages
-- **Authentic Character Behavior**: Responds like the actual Puro character with free will rather than an AI assistant - using varied, unpredictable speech patterns like a real person
+- **Authentic Character Behavior**: Responds like the actual Puro character with free will rather than an AI assistant - using natural, dynamic speech that varies appropriately with the conversation
 
 ## Setup
 

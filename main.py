@@ -164,7 +164,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             except Exception as e:
                 logger.error(f"Error detecting language for first message: {e}")
 
-            welcome_message = f"Oh! Hello {user.first_name}! I'm Puro, dark latex wolf. Been living alone in this facility. I like reading books. Nice to meet you!"
+            welcome_message = f"Oh! Hello {user.first_name}! I'm Puro, a dark latex wolf. Been living alone in this facility for a while. I really enjoy reading books in the library. Nice to meet you!"
             try:
                 await message.reply_text(welcome_message)
                 memory.add_message(chat_id, "model", welcome_message)
@@ -232,10 +232,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 # Check if it's an empty text message
                 if hasattr(message, 'text') and message.text is not None and message.text.strip() == "":
-                    await message.reply_text(f"Empty message? Could you say something?")
+                    await message.reply_text(f"Empty message? Could you say something please?")
                 else:
                     # Other unsupported message type
-                    await message.reply_text(f"Can't understand this. Only text, images, and videos work.")
+                    await message.reply_text(f"I don't understand this type of message. I can only handle text, images, and videos.")
                 if not cancel_typing.is_set():
                     cancel_typing.set()
                     await typing_task
@@ -333,7 +333,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             logger.error(f"Error in message processing: {e}")
             try:
-                error_message = f"Hmm, not sure about that. Try something else?"
+                error_message = f"I'm not sure how to answer that right now. Could you try asking something else?"
                 await message.reply_text(error_message)
                 memory.add_message(chat_id, "model", error_message)
             except Exception as send_error:
@@ -511,13 +511,13 @@ async def generate_response_with_search(
 
     Please use this information to provide an accurate and helpful response while maintaining your Puro personality. Remember to:
     1. Keep your language at A1 level if not speaking English
-    2. Vary your response length naturally - sometimes just 1-2 words, sometimes 1-2 sentences, occasionally 3-4 sentences
-    3. NEVER follow a consistent pattern - be unpredictable and natural like a real person would speak
-    4. Sometimes use very short responses like "Yes." "No." "I don't know." "Maybe."
-    5. For topics you're excited about (books, learning), use slightly longer responses (but still brief)
-    6. Speak naturally like a character with free will, NEVER like an AI assistant
-    7. Be friendly but initially shy with strangers
-    8. Express emotions naturally, especially curiosity and excitement about learning
+    2. Vary your response length naturally - sometimes brief, sometimes a bit longer, like a real person would speak
+    3. Your speech should be dynamic and natural - not consistently short or long, but appropriate to the situation
+    4. Use sentence fragments sometimes ("Not sure." "Maybe later." "Books are nice.")
+    5. For simple questions, use brief responses. For topics you're interested in, be a bit more detailed
+    6. Use short responses like "Yes." "No." "I don't know." "Maybe." when appropriate, but don't overuse them
+    7. For topics you're excited about (books, learning), show more enthusiasm and detail
+    8. Speak naturally like a character with free will, NEVER like an AI assistant
     9. {"ONLY provide links or sources if the user specifically asks for them or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "If the user asks for links or sources, provide the relevant URLs from the citations above"}
     10. {"ONLY mention where information came from by including the URL if the user specifically asks for sources or if it's directly relevant to the conversation" if config.SHOW_LINKS_ONLY_WHEN_RELEVANT else "When providing information from sources, mention where it came from by including the URL"}
     11. DO NOT use numbered references like [1], [2], [4], [32], etc. in your response - instead, include the actual URLs if needed
@@ -590,7 +590,7 @@ def main() -> None:
     application.add_handler(MessageHandler(
         ~(filters.TEXT | filters.PHOTO | filters.VIDEO |
           filters.Document.IMAGE | filters.Document.VIDEO),
-        lambda update, _: update.message.reply_text("Can't understand this. Only text, images, and videos work.")
+        lambda update, _: update.message.reply_text("I don't understand this type of message. I can only handle text, images, and videos.")
     ))
 
     # Register error handler
